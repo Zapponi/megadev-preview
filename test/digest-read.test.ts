@@ -1,9 +1,12 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterAll, describe, expect, it } from 'vitest';
 import { readNight } from '../src/digest/read.js';
 import type { Night } from '../src/digest/types.js';
+
+const RUNS = fileURLToPath(new URL('../runs', import.meta.url));
 
 function rowsOf(n: Night) {
   if (!n.found) throw new Error(`no file for ${n.night}`);
@@ -11,7 +14,7 @@ function rowsOf(n: Night) {
 }
 
 describe('readNight on runs/2026-10-28.jsonl', () => {
-  const night = rowsOf(readNight('runs', '2026-10-28'));
+  const night = rowsOf(readNight(RUNS, '2026-10-28'));
 
   it('has 5 jobs and 1 bad line (the cut-off last line)', () => {
     expect(night.rows).toHaveLength(5);
@@ -20,11 +23,11 @@ describe('readNight on runs/2026-10-28.jsonl', () => {
 
   it('gives one row per job, sorted by job, times as logged', () => {
     expect(night.rows).toEqual([
-      { job: 'digest/render', owner: null, runs: 1, retries: 0, lastStatus: 'ok', lastError: null, firstAt: '2026-10-29T05:41:09+01:00', lastAt: '2026-10-29T05:41:09+01:00' },
-      { job: 'fixtures/refresh', owner: 'rook', runs: 4, retries: 3, lastStatus: 'ok', lastError: 'upstream 503', firstAt: '2026-10-29T01:30:00+01:00', lastAt: '2026-10-29T01:37:00+01:00' },
-      { job: 'lane/sync', owner: 'rook', runs: 8, retries: 1, lastStatus: 'ok', lastError: 'lock held', firstAt: '2026-10-28T23:00:06+01:00', lastAt: '2026-10-29T05:00:04+01:00' },
-      { job: 'notes/backup', owner: 'lane-07', runs: 1, retries: 0, lastStatus: 'fail', lastError: 'quota exceeded', firstAt: '2026-10-29T04:00:01+01:00', lastAt: '2026-10-29T04:00:01+01:00' },
-      { job: 'rig/rotate-logs', owner: 'lane-07', runs: 1, retries: 0, lastStatus: 'ok', lastError: null, firstAt: '2026-10-28T23:00:02+01:00', lastAt: '2026-10-28T23:00:02+01:00' },
+      { job: 'digest/render', owner: null, runs: 1, retries: 0, fails: 0, lastStatus: 'ok', lastError: null, firstAt: '2026-10-29T05:41:09+01:00', lastAt: '2026-10-29T05:41:09+01:00' },
+      { job: 'fixtures/refresh', owner: 'rook', runs: 4, retries: 3, fails: 0, lastStatus: 'ok', lastError: 'upstream 503', firstAt: '2026-10-29T01:30:00+01:00', lastAt: '2026-10-29T01:37:00+01:00' },
+      { job: 'lane/sync', owner: 'rook', runs: 8, retries: 1, fails: 0, lastStatus: 'ok', lastError: 'lock held', firstAt: '2026-10-28T23:00:06+01:00', lastAt: '2026-10-29T05:00:04+01:00' },
+      { job: 'notes/backup', owner: 'lane-07', runs: 1, retries: 0, fails: 1, lastStatus: 'fail', lastError: 'quota exceeded', firstAt: '2026-10-29T04:00:01+01:00', lastAt: '2026-10-29T04:00:01+01:00' },
+      { job: 'rig/rotate-logs', owner: 'lane-07', runs: 1, retries: 0, fails: 0, lastStatus: 'ok', lastError: null, firstAt: '2026-10-28T23:00:02+01:00', lastAt: '2026-10-28T23:00:02+01:00' },
     ]);
   });
 });
@@ -50,13 +53,14 @@ describe('readNight on a temp runs dir', () => {
       '[1,2]',
       '{"at":"2026-11-03T01:00:00+01:00","job":"a","status":"maybe","owner":"x"}',
       '{"at":"not a time","job":"a","status":"ok","owner":"x"}',
+      '{"at":"2026-11-03T01:00:00","job":"a","status":"ok","owner":"x"}',
       '{"at":"2026-11-03T01:00:00+01:00","job":"","status":"ok","owner":"x"}',
       '{"at":"2026-11-03T01:00:00+01:00","job":"a","status":"ok","owner":7}',
       '{"at":"2026-11-03T01:00:00+01:00","job":"a","status":"fail","owner":"x","error":{"code":1}}',
       '',
       '   ',
     ]);
-    expect(readNight(dir, '2026-11-03')).toEqual({ found: true, night: '2026-11-03', rows: [], badLines: 7 });
+    expect(readNight(dir, '2026-11-03')).toEqual({ found: true, night: '2026-11-03', rows: [], badLines: 8 });
   });
 
   it('keeps rows with no owner and takes the last owner that was logged', () => {
@@ -83,7 +87,13 @@ describe('readNight on a temp runs dir', () => {
       lastStatus: 'fail',
       lastError: 'late',
       retries: 1,
+      fails: 1,
     });
+  });
+
+  it('strips a leading BOM', () => {
+    writeFileSync(join(dir, '2026-11-07.jsonl'), '﻿{"at":"2026-11-07T01:00:00Z","job":"a","status":"ok","owner":"x"}\n');
+    expect(rowsOf(readNight(dir, '2026-11-07'))).toMatchObject({ rows: [{ job: 'a', firstAt: '2026-11-07T01:00:00Z' }], badLines: 0 });
   });
 
   it('reads CRLF files', () => {

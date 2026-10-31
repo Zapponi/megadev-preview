@@ -11,6 +11,7 @@ export type DigestRow = {
   owner: string | null; // the last non-null owner logged for the job; null if none was
   runs: number; // lines logged for the job, every status
   retries: number; // lines with status `retry`
+  fails: number; // lines with status `fail`
   lastStatus: RunStatus; // status of the job's latest line
   lastError: string | null; // the latest `error` logged for the job, even if a later run was ok
   firstAt: string; // earliest `at`

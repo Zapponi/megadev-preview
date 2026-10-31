@@ -13,6 +13,8 @@ type LogLine = {
 };
 
 const NIGHT = /^\d{4}-\d{2}-\d{2}$/;
+// An `at` must carry its offset: without one, Date.parse would read it as local time.
+const AT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
 const STATUSES: readonly string[] = ['ok', 'retry', 'fail'] satisfies RunStatus[];
 
 function isStatus(v: unknown): v is RunStatus {
@@ -29,7 +31,7 @@ export function parseLine(text: string): LogLine | null {
   }
   if (typeof v !== 'object' || v === null || Array.isArray(v)) return null;
   const o = v as Record<string, unknown>;
-  if (typeof o.at !== 'string' || typeof o.job !== 'string' || o.job === '') return null;
+  if (typeof o.at !== 'string' || !AT.test(o.at) || typeof o.job !== 'string' || o.job === '') return null;
   const ms = Date.parse(o.at);
   if (Number.isNaN(ms) || !isStatus(o.status)) return null;
   const owner = o.owner ?? null;
@@ -48,18 +50,21 @@ function toRow(lines: LogLine[]): DigestRow {
   let lastError: string | null = null;
   let errorMs = -Infinity;
   let retries = 0;
+  let fails = 0;
   for (const l of lines) {
     if (l.ms < first.ms) first = l;
     if (l.ms >= last.ms) last = l;
     if (l.owner !== null && l.ms >= ownerMs) [owner, ownerMs] = [l.owner, l.ms];
     if (l.error !== null && l.ms >= errorMs) [lastError, errorMs] = [l.error, l.ms];
     if (l.status === 'retry') retries++;
+    if (l.status === 'fail') fails++;
   }
   return {
     job: first.job,
     owner,
     runs: lines.length,
     retries,
+    fails,
     lastStatus: last.status,
     lastError,
     firstAt: first.at,
@@ -71,7 +76,7 @@ export const readNight: ReadNight = (runsDir, night): Night => {
   if (!NIGHT.test(night)) return { found: false, night };
   let text: string;
   try {
-    text = readFileSync(join(runsDir, `${night}.jsonl`), 'utf8');
+    text = readFileSync(join(runsDir, `${night}.jsonl`), 'utf8').replace(/^﻿/, '');
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code === 'ENOENT') return { found: false, night };
     throw e;
