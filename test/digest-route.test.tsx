@@ -34,4 +34,17 @@ describe('GET /digest/:night', () => {
     expect(res.status).toBe(200);
     expect(await res.text()).toContain('nothing ran');
   });
+
+  it('renders the good rows and the bad-line notice for a temp night with a bad line', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'rig-runs-'));
+    const good = JSON.stringify({ job: 'a/job', status: 'ok', at: '2026-11-02T01:00:00+01:00' });
+    writeFileSync(join(dir, '2026-11-02.jsonl'), `${good}
+not json at all
+`);
+    const res = await createApp(config(dir)).request('/digest/2026-11-02');
+    const html = await res.text();
+    expect(res.status).toBe(200);
+    expect(html).toContain('a/job');
+    expect(html).toContain("1 line in the log didn&#39;t parse");
+  });
 });

@@ -40,3 +40,24 @@ describe('GET /api/digest/:night', () => {
     expect(json.rows.map((r) => r.job)).toEqual(pageJobs);
   });
 });
+
+describe('GET /api/digest/:night, empty and bad-line nights', () => {
+  it('returns 200 with no rows and no bad lines for an empty file', async () => {
+    const res = await appWith('2026-11-01', []).request('/api/digest/2026-11-01');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ night: '2026-11-01', rows: [], badLines: 0 });
+  });
+
+  it('keeps the good rows and counts the bad line', async () => {
+    const app = appWith('2026-11-02', [
+      JSON.stringify({ job: 'a', status: 'ok', at: '2026-11-02T01:00:00+01:00' }),
+      'not json at all',
+      JSON.stringify({ job: 'b', status: 'nope', at: '2026-11-02T02:00:00+01:00' }),
+    ]);
+    const res = await app.request('/api/digest/2026-11-02');
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { rows: DigestRow[]; badLines: number };
+    expect(body.badLines).toBe(2);
+    expect(body.rows.map((r) => r.job)).toEqual(['a']);
+  });
+});
