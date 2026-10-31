@@ -24,8 +24,8 @@ describe('readNight on runs/2026-10-28.jsonl', () => {
   it('gives one row per job, sorted by job, times as logged', () => {
     expect(night.rows).toEqual([
       { job: 'digest/render', owner: null, runs: 1, retries: 0, fails: 0, lastStatus: 'ok', lastError: null, firstAt: '2026-10-29T05:41:09+01:00', lastAt: '2026-10-29T05:41:09+01:00' },
-      { job: 'fixtures/refresh', owner: 'rook', runs: 4, retries: 3, fails: 0, lastStatus: 'ok', lastError: 'upstream 503', firstAt: '2026-10-29T01:30:00+01:00', lastAt: '2026-10-29T01:37:00+01:00' },
-      { job: 'lane/sync', owner: 'rook', runs: 8, retries: 1, fails: 0, lastStatus: 'ok', lastError: 'lock held', firstAt: '2026-10-28T23:00:06+01:00', lastAt: '2026-10-29T05:00:04+01:00' },
+      { job: 'fixtures/refresh', owner: 'rook', runs: 4, retries: 3, fails: 0, lastStatus: 'ok', lastError: null, firstAt: '2026-10-29T01:30:00+01:00', lastAt: '2026-10-29T01:37:00+01:00' },
+      { job: 'lane/sync', owner: 'rook', runs: 8, retries: 1, fails: 0, lastStatus: 'ok', lastError: null, firstAt: '2026-10-28T23:00:06+01:00', lastAt: '2026-10-29T05:00:04+01:00' },
       { job: 'notes/backup', owner: 'lane-07', runs: 1, retries: 0, fails: 1, lastStatus: 'fail', lastError: 'quota exceeded', firstAt: '2026-10-29T04:00:01+01:00', lastAt: '2026-10-29T04:00:01+01:00' },
       { job: 'rig/rotate-logs', owner: 'lane-07', runs: 1, retries: 0, fails: 0, lastStatus: 'ok', lastError: null, firstAt: '2026-10-28T23:00:02+01:00', lastAt: '2026-10-28T23:00:02+01:00' },
     ]);
@@ -89,6 +89,26 @@ describe('readNight on a temp runs dir', () => {
       retries: 1,
       fails: 1,
     });
+  });
+
+  it('shows a last error only for errors since the last ok', () => {
+    write('2026-11-08', [
+      '{"at":"2026-11-08T01:00:00+01:00","job":"ended-ok","status":"retry","owner":"x","error":"old"}',
+      '{"at":"2026-11-08T01:01:00+01:00","job":"ended-ok","status":"ok","owner":"x","error":"noise"}',
+      '{"at":"2026-11-08T01:00:00+01:00","job":"failed-again","status":"fail","owner":"x","error":"old"}',
+      '{"at":"2026-11-08T01:01:00+01:00","job":"failed-again","status":"ok","owner":"x"}',
+      '{"at":"2026-11-08T01:02:00+01:00","job":"failed-again","status":"retry","owner":"x","error":"new"}',
+      '{"at":"2026-11-08T01:03:00+01:00","job":"failed-again","status":"fail","owner":"x"}',
+      '{"at":"2026-11-08T01:00:00+01:00","job":"no-message","status":"retry","owner":"x","error":"old"}',
+      '{"at":"2026-11-08T01:01:00+01:00","job":"no-message","status":"ok","owner":"x"}',
+      '{"at":"2026-11-08T01:02:00+01:00","job":"no-message","status":"fail","owner":"x"}',
+    ]);
+    const { rows } = rowsOf(readNight(dir, '2026-11-08'));
+    expect(rows.map((r) => [r.job, r.lastStatus, r.lastError])).toEqual([
+      ['ended-ok', 'ok', null],
+      ['failed-again', 'fail', 'new'],
+      ['no-message', 'fail', null],
+    ]);
   });
 
   it('strips a leading BOM', () => {
