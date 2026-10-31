@@ -23,6 +23,7 @@ describe('GET /api/digest/:night', () => {
     expect(body.rows.map((r) => r.job)).toEqual(['a', 'b']);
     expect(body.rows[0]?.firstAt).toBe('2026-10-28T01:00:00+01:00');
     expect(body.rows[1]?.owner).toBeNull();
+    expect(body.rows[0]?.fails).toBe(1);
   });
 
   it('404s for a night with no file', async () => {
