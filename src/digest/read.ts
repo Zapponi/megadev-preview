@@ -41,21 +41,19 @@ export function parseLine(text: string): LogLine | null {
   return { at: o.at, ms, job: o.job, status: o.status, owner, error };
 }
 
-// Lines in file order. Ties on time go to the later line.
+// Lines in file order. Walked in time order; the sort is stable, so ties keep file order.
 function toRow(lines: LogLine[]): DigestRow {
-  let first = lines[0]!;
-  let last = lines[0]!;
+  const timed = [...lines].sort((a, b) => a.ms - b.ms);
+  const first = timed[0]!;
+  const last = timed[timed.length - 1]!;
   let owner: string | null = null;
-  let ownerMs = -Infinity;
   let lastError: string | null = null;
-  let errorMs = -Infinity;
   let retries = 0;
   let fails = 0;
-  for (const l of lines) {
-    if (l.ms < first.ms) first = l;
-    if (l.ms >= last.ms) last = l;
-    if (l.owner !== null && l.ms >= ownerMs) [owner, ownerMs] = [l.owner, l.ms];
-    if (l.error !== null && l.ms >= errorMs) [lastError, errorMs] = [l.error, l.ms];
+  for (const l of timed) {
+    if (l.owner !== null) owner = l.owner;
+    // An ok line clears it: a recovered job's earlier errors are not current.
+    lastError = l.status === 'ok' ? null : (l.error ?? lastError);
     if (l.status === 'retry') retries++;
     if (l.status === 'fail') fails++;
   }
