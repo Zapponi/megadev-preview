@@ -7,6 +7,7 @@ const row = (over: Partial<DigestRow>): DigestRow => ({
   owner: 'rook',
   runs: 1,
   retries: 0,
+  fails: 0,
   lastStatus: 'ok',
   lastError: null,
   firstAt: '2026-10-28T23:00:06+01:00',
@@ -20,7 +21,7 @@ const render = async (rows: DigestRow[], badLines = 0) =>
 describe('digest view', () => {
   it('sorts by job, marks 3+ retries and fail, shows MISSING for nulls', async () => {
     const html = await render([
-      row({ job: 'notes/backup', owner: 'lane-07', lastStatus: 'fail', lastError: 'quota exceeded' }),
+      row({ job: 'notes/backup', owner: 'lane-07', fails: 1, lastStatus: 'fail', lastError: 'quota exceeded' }),
       row({ job: 'digest/render', owner: null }),
       row({ job: 'fixtures/refresh', retries: 3, runs: 4, lastError: 'upstream 503' }),
       row({ job: 'lane/sync', retries: 2 }),
@@ -30,8 +31,18 @@ describe('digest view', () => {
     expect(html).toContain('<strong class="warn">3</strong>');
     expect(html).not.toContain('<strong class="warn">2</strong>');
     expect(html).toContain('<strong class="warn">fail</strong>');
+    expect(html).toContain('<strong class="warn">notes/backup</strong>');
+    expect(html).toContain('<strong class="warn">fixtures/refresh</strong>');
+    expect(html).not.toContain('<strong class="warn">lane/sync</strong>');
     expect(html).toContain('<span class="mute">—</span>');
     expect(html).not.toMatch(/<td><\/td>/);
+  });
+
+  it('marks a job that failed and later passed', async () => {
+    const html = await render([row({ job: 'notes/backup', runs: 2, fails: 1, lastStatus: 'ok', lastError: 'quota exceeded' })]);
+    expect(html).toContain('<strong class="warn">notes/backup</strong>');
+    expect(html).toContain('<strong class="warn">1</strong>');
+    expect(html).not.toContain('<strong class="warn">fail</strong>');
   });
 
   it('keeps times as logged and errors whole', async () => {
