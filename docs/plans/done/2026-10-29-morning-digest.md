@@ -1,8 +1,9 @@
 ---
 plan: morning-digest
-status: ready
+status: done
 owner: rook
 opened: 2026-10-29
+closed: 2026-10-31
 ---
 
 # Morning digest
@@ -77,3 +78,20 @@ page again with `LANE_MARKER` unset (the banner reads "no marker set") and uploa
 link. Move this plan to `docs/plans/done/` with its issue list.
 
 Done when: the preview link no longer shows the lane marker.
+
+## Issues
+
+| # | Issue | Blocked by | Worker | Closed |
+|---|-------|-----------|--------|--------|
+| 1 | Run log reader | — | claude-code (T3) · opus-5.5 · high requested | 2026-10-31 |
+| 2 | Digest page | #1 | claude-code (T3) · opus-5.5 · high requested | 2026-10-31 |
+| 3 | Digest JSON | #1 | claude-code (T3) · sonnet-5.5 · medium requested | 2026-10-31 |
+| 4 | Board link | #2 | claude-code (T3) · sonnet-5.5 · medium requested | 2026-10-31 |
+| 5 | Route tests | #2, #3 | claude-code (T3) · sonnet-5.5 · medium requested | 2026-10-31 |
+| 13 | Reader: last error only when the job did not end ok | — | claude-code (T3) · opus-5.5 · high requested | 2026-10-31 |
+| 15 | Reader: revert #13 | — | claude-code (T3) · opus-5.5 · high requested | 2026-10-31 |
+| 6 | Preview for review | #2, #3, #4, #5 | claude-code (T3) · opus-5.5 · coordinator | 2026-10-31 |
+| 7 | Clean up | #6 | claude-code (T3) · opus-5.5 · coordinator | 2026-10-31 |
+
+#13 changed "last error" to show only for jobs that did not end ok; #15 reverted it to the plan's reading. #6 was closed once before the review and reopened. The preview lost its marker after the review (ADR 0003).
+
